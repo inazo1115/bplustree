@@ -41,4 +41,9 @@ func TestBPlusTree(t *testing.T) {
 	for it.HasNext() {
 		fmt.Println(it.Next())
 	}
+
+	it = tree.Range(Int(30), Int(50))
+	for it.HasNext() {
+		fmt.Println(it.Next())
+	}
 }
