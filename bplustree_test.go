@@ -1,11 +1,10 @@
 package bplustree
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 )
-
-type Name string
 
 type Int int
 
@@ -36,5 +35,10 @@ func TestBPlusTree(t *testing.T) {
 
 	if tree.Len() == 50 {
 		t.Errorf("error Len")
+	}
+
+	it := tree.Scan()
+	for it.HasNext() {
+		fmt.Println(it.Next())
 	}
 }

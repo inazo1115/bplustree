@@ -166,7 +166,7 @@ type blockNode struct {
 type leafNode struct {
 	itemKeys itemKeys
 	items    items
-	next     node
+	next     *leafNode
 	mtx      sync.RWMutex
 }
 
@@ -421,6 +421,45 @@ func borrowFromRightLeaf(left, right *leafNode) ItemKey {
 }
 
 //
+// iterator
+//
+
+type iterator struct {
+	idx  int
+	node *leafNode
+}
+
+func newIterator(node *leafNode) *iterator {
+	return &iterator{0, node}
+}
+
+func (it *iterator) HasNext() bool {
+	if it.idx < len(it.node.itemKeys) {
+		return true
+	}
+	if it.node.next != nil {
+		return true
+	}
+	return false
+}
+
+func (it *iterator) Next() Item {
+	if it.idx < len(it.node.itemKeys) {
+		out := it.node.items[it.idx]
+		it.idx++
+		return out
+	}
+	if it.node.next != nil {
+		it.idx = 0
+		it.node = it.node.next
+		out := it.node.items[it.idx]
+		it.idx++
+		return out
+	}
+	return nil
+}
+
+//
 // BPlusTree
 //
 
@@ -512,6 +551,17 @@ func (t *BPlusTree) Len() int {
 
 func (t *BPlusTree) Has(key ItemKey) bool {
 	return t.Get(key) != nil
+}
+
+func (t *BPlusTree) Scan() *iterator {
+	if t.root == nil {
+		return nil
+	}
+	n := t.root
+	for !n.IsLeaf() {
+		n = n.(*blockNode).children[0]
+	}
+	return newIterator(n.(*leafNode))
 }
 
 func (t *BPlusTree) Dump() {
