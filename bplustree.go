@@ -520,7 +520,7 @@ func (t *BPlusTree) Get(key ItemKey) Item {
 	return t.root.get(key)
 }
 
-func (t *BPlusTree) max() Item {
+func (t *BPlusTree) Max() Item {
 	if t.root == nil {
 		return nil
 	}
