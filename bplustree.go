@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 )
 
 //
@@ -160,14 +159,12 @@ type node interface {
 type blockNode struct {
 	itemKeys itemKeys
 	children children
-	mtx      sync.RWMutex
 }
 
 type leafNode struct {
 	itemKeys itemKeys
 	items    items
 	next     *leafNode
-	mtx      sync.RWMutex
 }
 
 func newBlockNode() *blockNode {
