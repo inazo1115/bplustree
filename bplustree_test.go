@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-type Name string
-
 type Int int
 
 type Student struct {
