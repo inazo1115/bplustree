@@ -427,20 +427,27 @@ func mergeLeaf(first, second *leafNode) {
 type iterator struct {
 	idx  int
 	node *leafNode
+	to   ItemKey
 }
 
-func newIterator(node *leafNode) *iterator {
-	return &iterator{0, node}
+func newIterator(idx int, node *leafNode, to ItemKey) *iterator {
+	return &iterator{idx, node, to}
 }
 
 func (it *iterator) HasNext() bool {
+	// Scan
+	if it.to == nil {
+		return it.idx < len(it.node.itemKeys) || it.node.next != nil
+	}
+	// Range
 	if it.idx < len(it.node.itemKeys) {
-		return true
+		return it.node.itemKeys[it.idx].Less(it.to)
+	} else {
+		if it.node.next == nil {
+			return false
+		}
+		return it.node.next.itemKeys[0].Less(it.to)
 	}
-	if it.node.next != nil {
-		return true
-	}
-	return false
 }
 
 func (it *iterator) Next() Item {
@@ -561,7 +568,20 @@ func (t *BPlusTree) Scan() *iterator {
 	for !n.isLeaf() {
 		n = n.(*blockNode).children[0]
 	}
-	return newIterator(n.(*leafNode))
+	return newIterator(0, n.(*leafNode), nil)
+}
+
+func (t *BPlusTree) Range(from, to ItemKey) *iterator {
+	if t.root == nil {
+		return nil
+	}
+	n := t.root
+	for !n.isLeaf() {
+		i, _ := n.(*blockNode).itemKeys.find(from)
+		n = n.(*blockNode).children[i]
+	}
+	i, _ := n.(*leafNode).itemKeys.find(from)
+	return newIterator(i, n.(*leafNode), to)
 }
 
 func (t *BPlusTree) Dump() {
