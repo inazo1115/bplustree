@@ -146,15 +146,15 @@ func (s *items) truncate(index int) {
 //
 
 type node interface {
-	ItemKeys() itemKeys
-	Get(key ItemKey) Item
-	Max() Item
-	Min() Item
-	Insert(item Item, maxItemKeys int) Item
-	Remove(key ItemKey, minItemKeys int) Item
-	IsLeaf() bool
-	Split(i int) (ItemKey, node)
-	Dump(level int)
+	getItemKeys() itemKeys
+	get(key ItemKey) Item
+	max() Item
+	min() Item
+	insert(item Item, maxItemKeys int) Item
+	remove(key ItemKey, minItemKeys int) Item
+	isLeaf() bool
+	split(i int) (ItemKey, node)
+	dump(level int)
 }
 
 type blockNode struct {
@@ -178,20 +178,20 @@ func newleafNode() *leafNode {
 	return &leafNode{}
 }
 
-func (n *blockNode) ItemKeys() itemKeys {
+func (n *blockNode) getItemKeys() itemKeys {
 	return n.itemKeys
 }
 
-func (n *leafNode) ItemKeys() itemKeys {
+func (n *leafNode) getItemKeys() itemKeys {
 	return n.itemKeys
 }
 
-func (n *blockNode) Get(key ItemKey) Item {
+func (n *blockNode) get(key ItemKey) Item {
 	i, _ := n.itemKeys.find(key)
-	return n.children[i].Get(key)
+	return n.children[i].get(key)
 }
 
-func (n *leafNode) Get(key ItemKey) Item {
+func (n *leafNode) get(key ItemKey) Item {
 	i, found := n.itemKeys.find(key)
 	if found {
 		return n.items[i]
@@ -199,23 +199,23 @@ func (n *leafNode) Get(key ItemKey) Item {
 	return nil
 }
 
-func (n *blockNode) Max() Item {
-	return n.children[len(n.children)-1].Max()
+func (n *blockNode) max() Item {
+	return n.children[len(n.children)-1].max()
 }
 
-func (n *leafNode) Max() Item {
+func (n *leafNode) max() Item {
 	return n.items[len(n.items)-1]
 }
 
-func (n *blockNode) Min() Item {
-	return n.children[0].Min()
+func (n *blockNode) min() Item {
+	return n.children[0].min()
 }
 
-func (n *leafNode) Min() Item {
+func (n *leafNode) min() Item {
 	return n.items[0]
 }
 
-func (n *blockNode) Insert(item Item, maxItemKeys int) Item {
+func (n *blockNode) insert(item Item, maxItemKeys int) Item {
 	k0 := item.GetKey()
 	i, _ := n.itemKeys.find(k0)
 	if n.maybeSplitChild(i, maxItemKeys) {
@@ -224,10 +224,10 @@ func (n *blockNode) Insert(item Item, maxItemKeys int) Item {
 			i++
 		}
 	}
-	return n.children[i].Insert(item, maxItemKeys)
+	return n.children[i].insert(item, maxItemKeys)
 }
 
-func (n *leafNode) Insert(item Item, maxItemKeys int) Item {
+func (n *leafNode) insert(item Item, maxItemKeys int) Item {
 	if len(n.itemKeys) > maxItemKeys {
 		panic("this leaf node can't have more items")
 	}
@@ -243,14 +243,14 @@ func (n *leafNode) Insert(item Item, maxItemKeys int) Item {
 	return nil
 }
 
-func (n *blockNode) Remove(key ItemKey, minItemKeys int) Item {
+func (n *blockNode) remove(key ItemKey, minItemKeys int) Item {
 	i, _ := n.itemKeys.find(key)
-	out := n.children[i].Remove(key, minItemKeys)
+	out := n.children[i].remove(key, minItemKeys)
 	n.balanceChild(i, minItemKeys)
 	return out
 }
 
-func (n *leafNode) Remove(key ItemKey, minItemKeys int) Item {
+func (n *leafNode) remove(key ItemKey, minItemKeys int) Item {
 	i, found := n.itemKeys.find(key)
 	if found {
 		out := n.items[i]
@@ -261,15 +261,15 @@ func (n *leafNode) Remove(key ItemKey, minItemKeys int) Item {
 	return nil
 }
 
-func (n *blockNode) IsLeaf() bool {
+func (n *blockNode) isLeaf() bool {
 	return false
 }
 
-func (n *leafNode) IsLeaf() bool {
+func (n *leafNode) isLeaf() bool {
 	return true
 }
 
-func (n *blockNode) Split(i int) (ItemKey, node) {
+func (n *blockNode) split(i int) (ItemKey, node) {
 	itemKey := n.itemKeys[i]
 	second := newBlockNode()
 	second.itemKeys = append(second.itemKeys, n.itemKeys[i+1:]...)
@@ -281,7 +281,7 @@ func (n *blockNode) Split(i int) (ItemKey, node) {
 	return itemKey, second
 }
 
-func (n *leafNode) Split(i int) (ItemKey, node) {
+func (n *leafNode) split(i int) (ItemKey, node) {
 	itemKey := n.itemKeys[i]
 	second := newleafNode()
 	second.itemKeys = append(second.itemKeys, n.itemKeys[i+1:]...)
@@ -295,15 +295,15 @@ func (n *leafNode) Split(i int) (ItemKey, node) {
 	return itemKey, second
 }
 
-func (n *blockNode) Dump(level int) {
+func (n *blockNode) dump(level int) {
 	indent := strings.Repeat("    ", level)
 	fmt.Printf("%sBLOCK:%v:%p\n", indent, n.itemKeys, n)
 	for _, c := range n.children {
-		c.Dump(level + 1)
+		c.dump(level + 1)
 	}
 }
 
-func (n *leafNode) Dump(level int) {
+func (n *leafNode) dump(level int) {
 	indent := strings.Repeat("    ", level)
 	fmt.Printf("%sLEAF:%v:%p\n", indent, n.itemKeys, n)
 	fmt.Printf("%s    %v\n", indent, n.items)
@@ -311,11 +311,11 @@ func (n *leafNode) Dump(level int) {
 }
 
 func (n *blockNode) maybeSplitChild(i, maxItemKeys int) bool {
-	if len(n.children[i].ItemKeys()) < maxItemKeys {
+	if len(n.children[i].getItemKeys()) < maxItemKeys {
 		return false
 	}
 	first := n.children[i]
-	itemKey, second := first.Split(maxItemKeys / 2)
+	itemKey, second := first.split(maxItemKeys / 2)
 	n.itemKeys.insertAt(i, itemKey)
 	n.children.insertAt(i+1, second)
 	return true
@@ -323,15 +323,15 @@ func (n *blockNode) maybeSplitChild(i, maxItemKeys int) bool {
 
 func (n *blockNode) balanceChild(i, minItemKeys int) {
 	// Re-balance is unnecesary.
-	if len(n.children[i].ItemKeys()) > minItemKeys {
+	if len(n.children[i].getItemKeys()) > minItemKeys {
 		return
 	}
 	// Borrow from left sibling.
-	if i > 0 && len(n.children[i-1].ItemKeys())-1 >= minItemKeys {
+	if i > 0 && len(n.children[i-1].getItemKeys())-1 >= minItemKeys {
 		left := n.children[i-1]
 		right := n.children[i]
 		var k ItemKey
-		if left.IsLeaf() {
+		if left.isLeaf() {
 			k = borrowFromLeftLeaf(left.(*leafNode), right.(*leafNode))
 		} else {
 			k = borrowFromLeftBlock(left.(*blockNode), right.(*blockNode))
@@ -340,11 +340,11 @@ func (n *blockNode) balanceChild(i, minItemKeys int) {
 		return
 	}
 	// Borrow from right sibling.
-	if i < len(n.itemKeys)-1 && len(n.children[i+1].ItemKeys())-1 >= minItemKeys {
+	if i < len(n.itemKeys)-1 && len(n.children[i+1].getItemKeys())-1 >= minItemKeys {
 		left := n.children[i]
 		right := n.children[i+1]
 		var k ItemKey
-		if left.IsLeaf() {
+		if left.isLeaf() {
 			k = borrowFromRightLeaf(left.(*leafNode), right.(*leafNode))
 		} else {
 			k = borrowFromRightBlock(left.(*blockNode), right.(*blockNode))
@@ -356,7 +356,7 @@ func (n *blockNode) balanceChild(i, minItemKeys int) {
 	if i > 0 {
 		first := n.children[i-1]
 		second := n.children[i]
-		if first.IsLeaf() {
+		if first.isLeaf() {
 			mergeLeaf(first.(*leafNode), second.(*leafNode))
 		} else {
 			mergeBlock(first.(*blockNode), second.(*blockNode))
@@ -368,7 +368,7 @@ func (n *blockNode) balanceChild(i, minItemKeys int) {
 	// Merge right sibling.
 	first := n.children[i]
 	second := n.children[i+1]
-	if first.IsLeaf() {
+	if first.isLeaf() {
 		mergeLeaf(first.(*leafNode), second.(*leafNode))
 	} else {
 		mergeBlock(first.(*blockNode), second.(*blockNode))
@@ -376,16 +376,6 @@ func (n *blockNode) balanceChild(i, minItemKeys int) {
 	n.itemKeys.removeAt(i)
 	n.children.removeAt(i + 1)
 	return
-}
-
-func mergeBlock(first, second *blockNode) {
-	first.itemKeys = append(first.itemKeys, second.itemKeys...)
-	first.children = append(first.children, second.children...)
-}
-
-func mergeLeaf(first, second *leafNode) {
-	first.itemKeys = append(first.itemKeys, second.itemKeys...)
-	first.items = append(first.items, second.items...)
 }
 
 func borrowFromLeftBlock(left, right *blockNode) ItemKey {
@@ -418,6 +408,16 @@ func borrowFromRightLeaf(left, right *leafNode) ItemKey {
 	left.itemKeys.insertAt(len(left.itemKeys), k)
 	left.items.insertAt(len(left.items), i)
 	return left.itemKeys[len(left.itemKeys)-1]
+}
+
+func mergeBlock(first, second *blockNode) {
+	first.itemKeys = append(first.itemKeys, second.itemKeys...)
+	first.children = append(first.children, second.children...)
+}
+
+func mergeLeaf(first, second *leafNode) {
+	first.itemKeys = append(first.itemKeys, second.itemKeys...)
+	first.items = append(first.items, second.items...)
 }
 
 //
@@ -487,19 +487,19 @@ func (t *BPlusTree) ReplaceOrInsert(item Item) Item {
 	}
 	if t.root == nil {
 		t.root = newleafNode()
-		t.root.Insert(item, t.maxItemKeys())
+		t.root.insert(item, t.maxItemKeys())
 		t.length++
 		return nil
 	}
-	if len(t.root.ItemKeys()) >= t.maxItemKeys() {
-		itemKey, second := t.root.Split(t.maxItemKeys() / 2)
+	if len(t.root.getItemKeys()) >= t.maxItemKeys() {
+		itemKey, second := t.root.split(t.maxItemKeys() / 2)
 		oldroot := t.root
 		newroot := newBlockNode()
 		newroot.itemKeys = append(newroot.itemKeys, itemKey)
 		newroot.children = append(newroot.children, oldroot, second)
 		t.root = newroot
 	}
-	out := t.root.Insert(item, t.maxItemKeys())
+	out := t.root.insert(item, t.maxItemKeys())
 	if out == nil {
 		t.length++
 	}
@@ -510,33 +510,33 @@ func (t *BPlusTree) Get(key ItemKey) Item {
 	if t.root == nil {
 		return nil
 	}
-	return t.root.Get(key)
+	return t.root.get(key)
 }
 
-func (t *BPlusTree) Max() Item {
+func (t *BPlusTree) max() Item {
 	if t.root == nil {
 		return nil
 	}
-	return t.root.Max()
+	return t.root.max()
 }
 
 func (t *BPlusTree) Min() Item {
 	if t.root == nil {
 		return nil
 	}
-	return t.root.Min()
+	return t.root.min()
 }
 
 func (t *BPlusTree) Delete(key ItemKey) Item {
 	if t.root == nil {
 		return nil
 	}
-	out := t.root.Remove(key, t.minItemKeys())
+	out := t.root.remove(key, t.minItemKeys())
 	if out != nil {
 		t.length--
 	}
-	if len(t.root.ItemKeys()) == 0 {
-		if t.root.IsLeaf() {
+	if len(t.root.getItemKeys()) == 0 {
+		if t.root.isLeaf() {
 			t.root = nil
 		} else {
 			t.root = t.root.(*blockNode).children[0]
@@ -558,7 +558,7 @@ func (t *BPlusTree) Scan() *iterator {
 		return nil
 	}
 	n := t.root
-	for !n.IsLeaf() {
+	for !n.isLeaf() {
 		n = n.(*blockNode).children[0]
 	}
 	return newIterator(n.(*leafNode))
@@ -570,6 +570,6 @@ func (t *BPlusTree) Dump() {
 	if t.root == nil {
 		fmt.Printf("the tree is empty.\n")
 	} else {
-		t.root.Dump(0)
+		t.root.dump(0)
 	}
 }
